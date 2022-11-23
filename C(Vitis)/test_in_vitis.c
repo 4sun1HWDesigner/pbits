@@ -9,7 +9,7 @@
 #include "xplatform_info.h"
 #include <string.h>
 
-#define N 1000000
+#define N 100000
 
 #define AXI_DATA_BYTE 4 // data width of axi4-lite is 32bits
 
@@ -19,14 +19,25 @@
 
 #define CTRL_REG 0 		// [R/W] register that is used to control the core(random number generator)
 #define STATUS_REG 1 	// [R only] register that is used to check status(IDLE, RUN, DONE) of the core
-#define RESULT_REG 2
+#define M0_REG 2		// [R only] register that is used to get m0 value
+#define M1_REG 3        // [R only] register that is used to get m1 value
+#define M0_INI_REG 4
+#define M1_INI_REG 5
+#define BETA_REG 6
 
 
 int main() {
 	int choice = 0;
     int idle;
     int done = 0;
-    int *random_number;
+
+    int* m0_pointer;
+    int* m1_pointer;
+
+
+    int m0_initial, m1_initial;
+    int beta = 0;
+    XTime tStart, tEnd;
 
     /*for file read and write*/
 	static FIL fil; /*file object*/
@@ -39,15 +50,11 @@ int main() {
 	static char *SD_File;
 
 
-
-
-
     while(1){
-    	xil_printf("======= random number generation started ======\n");
+    	xil_printf("======= p-bit started ======\n");
 
     	xil_printf("start(1) / terminate(0): \n");
     	scanf("%d", &choice);
-
 
 
     	if(choice == 1){
@@ -89,14 +96,48 @@ int main() {
 			}
 
 
-			random_number = (int*)malloc(sizeof(int) * N);
-
 			// initialize register to zero
 				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (CTRL_REG*AXI_DATA_BYTE), (u32)(0x00000000));
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M0_INI_REG*AXI_DATA_BYTE), (u32)(0x00000000));
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M1_INI_REG*AXI_DATA_BYTE), (u32)(0x00000000));
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (BETA_REG*AXI_DATA_BYTE), (u32)(0x00000000));
 
 
+			XTime_GetTime(&tStart); // to get a random number seed
+		    // create an array using malloc
+			m0_pointer = (int *)malloc(sizeof(int)*N);
+			m1_pointer = (int *)malloc(sizeof(int)*N);
+			XTime_GetTime(&tEnd); // // to get a random number seed
+
+			// put a random number(initial value) on m0, m1
+				srand(tEnd - tStart);
+
+				if(rand()%2 == 1)
+					m0_initial = 1;
+				else
+					m0_initial = -1;
+
+				srand(2*(tEnd - tStart));
+
+				if(rand()%2 == 1)
+					m1_initial = 1;
+				else
+					m1_initial = -1;
+
+				//xil_printf("%d", m0_initial);
+				//xil_printf("%d", m1_initial);
+
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M0_INI_REG*AXI_DATA_BYTE), (u32)m0_initial);
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M1_INI_REG*AXI_DATA_BYTE), (u32)m1_initial);
 
 
+			// put a beta
+				xil_printf("beta!: ");
+				scanf("%d", &beta);
+				Xil_Out32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (BETA_REG*AXI_DATA_BYTE), (u32)beta);
+
+
+				XTime_GetTime(&tStart);
 				// check whether the state is IDLE
 				do{
 					idle = Xil_In32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (STATUS_REG*AXI_DATA_BYTE));
@@ -109,7 +150,18 @@ int main() {
 
 				for(int i = 0; i < N; i++){
 
-					random_number[i] = Xil_In32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (RESULT_REG*AXI_DATA_BYTE));
+
+					m0_pointer[i] = Xil_In32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M0_REG*AXI_DATA_BYTE));
+					//if(m0_pointer[i] == 2)
+					//	m0_pointer[i] = 1;
+
+
+					m1_pointer[i] = Xil_In32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (M1_REG*AXI_DATA_BYTE));
+					//if(m1_pointer[i] == 2)
+					//	m1_pointer[i] = 1;
+
+
+					//xil_printf("m0, m1 is (%d, %d)\n", m0_pointer[i], m1_pointer[i]);
 
 				}
 
@@ -125,9 +177,14 @@ int main() {
 					done = Xil_In32((XPAR_TOP_MODULE_OF_ENTIRE_0_BASEADDR) + (STATUS_REG*AXI_DATA_BYTE));
 				} while( (done & DONE) != DONE );
 
+				XTime_GetTime(&tEnd);
+				//printf("Output took %llu clock cycles.\n", 2*(tEnd - tStart));
+				printf("Output took %.2f us.\n", 1.0 * (tEnd - tStart) / (COUNTS_PER_SECOND/1000000));
+
 
 				for(int i=0;i<N;i++){
-					f_printf(&fil, "%d\n", random_number[i]);
+					f_printf(&fil, "%d", m0_pointer[i]);
+					f_printf(&fil, "%d\n", m1_pointer[i]);
 				}
 
 
@@ -138,7 +195,8 @@ int main() {
 				xil_printf("Successfully ran! \n");
 
 
-				free(random_number);
+				free(m0_pointer);
+				free(m1_pointer);
 
 			xil_printf("Done\n");
     	}
