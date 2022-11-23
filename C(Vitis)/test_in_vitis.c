@@ -115,14 +115,14 @@ int main() {
 				if(rand()%2 == 1)
 					m0_initial = 1;
 				else
-					m0_initial = -1;
+					m0_initial = 0;
 
 				srand(2*(tEnd - tStart));
 
 				if(rand()%2 == 1)
 					m1_initial = 1;
 				else
-					m1_initial = -1;
+					m1_initial = 0;
 
 				//xil_printf("%d", m0_initial);
 				//xil_printf("%d", m1_initial);
