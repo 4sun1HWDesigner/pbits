@@ -426,7 +426,7 @@
 	        3'h3   : reg_data_out <= slv_reg3;
 	        //3'h4 : reg_data_out <= slv_reg4;
 	        //3'h5 : reg_data_out <= slv_reg5;
-	        //3'h6 : reg_data_out <= slv_reg5;
+	        //3'h6 : reg_data_out <= slv_reg6;
 	        default : reg_data_out <= 0;
 	      endcase
 	end
